@@ -1,142 +1,126 @@
-// variant of Vorocracks: https://shadertoy.com/view/lsVyRy
-// integrated with cracks here: https://www.shadertoy.com/view/Xd3fRN
-#import bevy_pbr::{
-    forward_io::{VertexOutput, FragmentOutput},
+#import bevy_pbr::mesh_view_bindings::globals
+
+
+
+const VARIANT: bool = true;
+const OFS: f32 = 0.5;
+const RATIO: f32 = 1.0;
+const CRACK_DEPTH: f32 = 3.0;
+const CRACK_ZEBRA_SCALE: f32 = 1.0;
+const CRACK_ZEBRA_AMP: f32 = 0.67;
+const CRACK_PROFILE: f32 = 1.0;
+const CRACK_SLOPE: f32 = 50.0;
+const CRACK_WIDTH: f32 = 0.0;
+
+fn rot(a: f32) -> mat2x2<f32> {
+    let s = sin(a);
+    let c = cos(a);
+    return mat2x2<f32>(c, s, -s, c);
 }
-
-
 
 fn hash22(p: vec2<f32>) -> vec2<f32> {
-    let m = mat2x2(127.1, 311.7, 269.5, 183.3);
-    return fract(18.5453 * sin(m * p));
-}
-fn disp(p: vec2<f32>) -> vec2<f32>{
-    let offset = 0.5;
-    return -offset + (1.0 + 2.0 * offset) * hash22(p);
+    let m = mat2x2<f32>(127.1, 269.5, 311.7, 183.3);
+    return fract(18.5453 * sin(p * m));
 }
 
+fn disp(p: vec2<f32>) -> vec2<f32> {
+    return -OFS + (1.0 + 2.0 * OFS) * hash22(p);
+}
 
-fn voronoiB(u: vec2<f32> ) -> f32 {
-    let iu: vec2<f32> = floor(u);
+fn voronoiB(u: vec2<f32>) -> vec3<f32> {
+    let iu = floor(u);
+    var m = 1e9;
     var C: vec2<f32>;
     var P: vec2<f32>;
-	var m: f32 = 1e9;
-    var d: f32;
-    for(var k=0; k < 25; k++) {
-        let p = iu + vec2(f32(k % 5 - 2), f32(k / 5 - 2));
-        let o = disp(p);
-      	let r = p - u + o;
-		d = dot(r, r);
-        if d < m {
-            m = d;
-            C = p - iu;
-            P = r;
+
+    // First pass
+    for (var y = -2; y <= 2; y++) {
+        for (var x = -2; x <= 2; x++) {
+            let p = iu + vec2<f32>(f32(x), f32(y));
+            let o = disp(p);
+            let r = p - u + o;
+            let d = dot(r, r);
+            if (d < m) {
+                m = d;
+                C = p - iu;
+                P = r;
+            }
         }
     }
 
     m = 1e9;
-
-    for(var k = 0; k < 25; k++) {
-        let p = iu + C + vec2(f32(k % 5 - 2), f32(k / 5 - 2));
-		let o = disp(p);
-        let r = p - u + o;
-
-        if dot(P - r, P - r) > 1e-5{
-            m = min(m,  dot((P + r), normalize(r - P)) *  0.5);
+    // Second pass for border distance
+    for (var y = -2; y <= 2; y++) {
+        for (var x = -2; x <= 2; x++) {
+            let p = iu + C + vec2<f32>(f32(x), f32(y));
+            let o = disp(p);
+            let r = p - u + o;
+            if (dot(P - r, P - r) > 1e-5) {
+                m = min(m, 0.5 * dot((P + r), normalize(r - P)));
+            }
         }
     }
-    return m;
-}
-
-// glsl style
-fn rot1(a: f32) -> mat2x2<f32> {
-    let c = cos(a);
-    let s = sin(a);
-    return mat2x2(c, -s, s, c);
-}
-// wgsl style
-fn rot(a: f32) -> mat2x2<f32>{
-    let c = cos(a);
-    let s = sin(a);
-    return mat2x2(c, s, -s, c);
+    return vec3<f32>(m, P + u);
 }
 
 fn hash21(p: vec2<f32>) -> f32 {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    return fract(sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453123);
 }
 
 fn noise2(p: vec2<f32>) -> f32 {
-    let i: vec2<f32> = floor(p);
-    var f: vec2<f32> = fract(p);
-    f = f * f * (3.0 - 2.0 * f); // smoothstep
-
-    let a = hash21(i + vec2(0.0, 0.0));
-    let b = hash21(i + vec2(1.0, 0.0));
-    let c = hash21(i + vec2(0.0, 1.0));
-    let d = hash21(i + vec2(1.0, 1.0));
-
-    let v:f32 = mix( mix(a, b, f.x), mix(c, d, f.x), f.y);
-	return  2.0 * v - 1.0;
+    let i = floor(p);
+    var f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    let v = mix(
+        mix(hash21(i + vec2<f32>(0.0, 0.0)), hash21(i + vec2<f32>(1.0, 0.0)), f.x),
+        mix(hash21(i + vec2<f32>(0.0, 1.0)), hash21(i + vec2<f32>(1.0, 1.0)), f.x),
+        f.y
+    );
+    return 2.0 * v - 1.0;
 }
 
-fn noise22(p: vec2<f32>) -> vec2<f32> {
-    return vec2(noise2(p), noise2(p + 17.7));
-}
-
-fn fbm22(p1: vec2<f32>) -> vec2<f32> {
-    var p = p1;
+fn fbm22(p_in: vec2<f32>) -> vec2<f32> {
+    var p = p_in;
     var v = vec2<f32>(0.0);
     var a = 0.5;
     let R = rot(0.37);
-
     for (var i = 0; i < 6; i++) {
-        p = R * p;
-        v += noise22(p) * a;
-        p *= 2.;
-        a /= 2.;
+        p = p * R;
+        v += a * vec2<f32>(noise2(p), noise2(p + 17.7));
+        p *= 2.0;
+        a /= 2.0;
     }
     return v;
 }
 
-
-
-fn calc_color(uv1: vec2<f32> ) -> vec4<f32> {
-    var uv = uv1;
-    let resolution_y = 10.0;
-    uv *= 4.0 / resolution_y;
-    let interval: vec2<f32> = floor(uv / 2.0);
-    let is_alt: bool = i32(interval.x + interval.y) % 2 == 0;
-    var color:vec4<f32> = vec4(0.0);
-    let crack_slope = 50.0;
-    let fractal_scale = 1.5;
-
-    for(var i= 0; i < 3; i++) {
-        let D = fbm22(uv);
-        var d = voronoiB(uv + D);
-        d = min(1.0, crack_slope * max(0.0, d));
-        let inv_d = 1.0 - d;
-        color += vec4(inv_d, inv_d, inv_d, 1.0) / exp2(f32(i));
-        uv = rot(0.37) * (uv * fractal_scale);
-    }
-    if is_alt{
-        color = 1.0 - color;
-    }
-    return color;
-}
-
-
-
 @fragment
-fn fragment(
-    vertex_output: VertexOutput,
-    @builtin(front_facing) is_front: bool,
-) -> FragmentOutput {
-    var in: VertexOutput;
-    in.position = vertex_output.position;
-    in.world_position = vertex_output.world_position;
-    in.world_normal = vertex_output.world_normal;
+fn fragment(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 
-    var out: FragmentOutput;
-    out.color = calc_color(vertex_output.world_position.xy);
-    return out;
+    let iResolution = vec2(1920.0, 1080.0);
+    let iTime = globals.time;
+
+    var U = fragCoord.xy * 4.0 / iResolution.y;
+    U.x += iTime;
+
+    let I = floor(U / 2.0);
+    let vert = (u32(I.x + I.y) % 2u) == 0u;
+    var O = vec4<f32>(0.0);
+    let R_mat = rot(0.37);
+
+    for (var i: f32 = 0.0; i < CRACK_DEPTH; i += 1.0) {
+        let V = U / vec2<f32>(RATIO, 1.0);
+        let D = CRACK_ZEBRA_AMP * fbm22(U / CRACK_ZEBRA_SCALE) * CRACK_ZEBRA_SCALE;
+        let H = voronoiB(V + D);
+
+        var d = H.x;
+        d = min(1.0, CRACK_SLOPE * pow(max(0.0, d - CRACK_WIDTH), CRACK_PROFILE));
+
+        O += vec4<f32>(1.0 - d) / pow(2.0, i);
+        U = (U * 1.5) * R_mat;
+    }
+
+    if (vert) { O = 1.0 - O; }
+    O = O * vec4<f32>(0.9, 0.85, 0.85, 1.0);
+    return vec4<f32>(O.rgb, 1.0);
 }
+
