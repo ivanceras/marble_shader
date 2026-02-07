@@ -88,7 +88,7 @@ fn fbm22(p_in: vec2<f32>) -> vec2<f32> {
     var a = 0.5;
     let R = rot(0.37);
     for (var i = 0; i < 6; i++) {
-        p = p * R;
+        p = R * p;
         v += a * vec2<f32>(noise2(p), noise2(p + 17.7));
         p *= 2.0;
         a /= 2.0;
@@ -119,7 +119,7 @@ fn fragment(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
         d = min(1.0, CRACK_SLOPE * pow(max(0.0, d - CRACK_WIDTH), CRACK_PROFILE));
 
         O += vec4<f32>(1.0 - d) / pow(2.0, i);
-        U = (U * 1.5) * R_mat;
+        U = R_mat * (U * 1.5);
     }
 
     if (vert) { O = 1.0 - O; }
