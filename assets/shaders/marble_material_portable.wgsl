@@ -1,6 +1,10 @@
+// ported to wgsl from https://www.shadertoy.com/view/Xs3fR4
+//
+// but had an issue with the veins not being smooth
+//
 // can be run in https://anukritiw.github.io/splitshade/
 // by pasting the whole code here
-//
+
 const VARIANT: bool = true;
 const OFS: f32 = 0.5;
 const RATIO: f32 = 1.0;
