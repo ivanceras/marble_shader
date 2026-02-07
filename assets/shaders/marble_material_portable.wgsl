@@ -23,7 +23,7 @@ fn rot(a: f32) -> mat2x2<f32> {
 
 fn hash22(p: vec2<f32>) -> vec2<f32> {
     let m = mat2x2<f32>(127.1, 269.5, 311.7, 183.3);
-    return fract(18.5453 * sin(p * m));
+    return fract(18.5453 * sin(m * p));
 }
 
 fn disp(p: vec2<f32>) -> vec2<f32> {
