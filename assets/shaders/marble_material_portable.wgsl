@@ -18,7 +18,7 @@ const CRACK_WIDTH: f32 = 0.0;
 fn rot(a: f32) -> mat2x2<f32> {
     let s = sin(a);
     let c = cos(a);
-    return mat2x2<f32>(c, s, -s, c);
+    return mat2x2<f32>(c, -s, s, c);
 }
 
 fn hash22(p: vec2<f32>) -> vec2<f32> {
