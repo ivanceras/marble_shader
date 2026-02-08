@@ -18,6 +18,6 @@ pub struct MarbleMaterial {
 impl MaterialExtension for MarbleMaterial {
 
     fn fragment_shader() -> ShaderRef {
-        "shaders/marble_material_portable.wgsl".into()
+        "shaders/marble_material_fixed.wgsl".into()
     }
 }
